@@ -7,7 +7,6 @@ import java.net.ServerSocket;
 import java.io.PrintWriter;
 import java.io.InputStreamReader;
 import java.io.IOException;
-import java.io.FileReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
@@ -311,7 +310,45 @@ public class FTPWorker extends Thread{
         dataOutWriter = null;
         dataSocket = null;
     }
+
+    /**
+     * Handler for NLST command which lists the names of files and directories
+     * @param args
+     */
     private void handleNlst(String args) {
+        if (dataConnection == null || dataConnection.isClosed()) {
+            notifyClient("425 Can't open data connection");
+        }
+        else {
+            String[] list = null;
+            String filename = currentDirectory;
+            // nlst command could have no argument in which case the filename would just be the current directory. Otherwise the argument is added
+            if (args != null) {
+                filename = filename + "/" + args;
+            }
+            
+            //check if the file is a directory
+            File file = new File(filename);
+            if (file.exists() && file.isDirectory()) {
+                list = file.list();
+            }
+            // the file is a file
+            else if (file.exists() && file.isFile()) {
+                list = new String[1];
+                list[0] = file.getName();
+            }
+
+            if (list == null) {
+                notifyClient("550 File does not exist");
+            }
+            else {
+                for (int i = 0; i < list.length; i ++) {
+                    dataOutWriter.print(list[i] + '\r' + '\n');
+                }
+            }
+            notifyClient("226 List successfully transfered");
+            closeDataConnection();
+        }
 
     }
     private void handlePasv() {
@@ -320,8 +357,27 @@ public class FTPWorker extends Thread{
         int port2 = dataPort % 256;
         String response = "227 Entering Passive Mode (" + ipAddress.replace('.', ',') +
                     "," + String.valueOf(port1) + "," + String.valueOf(port2) + ")";
+        notifyClient(response);
+        enterPassiveMode(dataPort);
+        
     }
 
+    /**
+     * Helper function for handlePasv which opens a connection socket which the client will connect to 
+     * 
+     * @param port port to listen on
+     */
+    private void enterPassiveMode(int port) {
+        try {
+            dataSocket = new ServerSocket(port);
+            dataConnection = dataSocket.accept();
+            //set auto flush to true
+            dataOutWriter = new PrintWriter(dataConnection.getOutputStream(), true);
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     /**
      * CWD command handler
      * @param directory Directory to change to
