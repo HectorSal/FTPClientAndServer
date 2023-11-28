@@ -26,18 +26,18 @@ public class FTPServer {
             System.exit(-1);
         }
         System.out.println("FTP Server listening on control port " + controlPort);
-        int noOfThreads = 0;
+        int numberOfThreads = 0;
         while (serverOn) {
             try {
             Socket client = serverSocket.accept();
             // Passive Mode ports
-            int dataPort = controlPort + noOfThreads + 1;
+            int dataPort = controlPort + numberOfThreads + 1;
 
             // Each connection gets a new worker thread
             FTPWorker worker = new FTPWorker(client, dataPort);
 
             System.out.println("New connection received, and a Worker was created.");
-            noOfThreads++;
+            numberOfThreads++;
             worker.start();
             } catch (IOException e) {
             System.out.println("Exception when accepting new connection");

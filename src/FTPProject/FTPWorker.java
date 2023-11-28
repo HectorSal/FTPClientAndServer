@@ -169,7 +169,12 @@ public class FTPWorker extends Thread{
      * PWD command handler
      */
     private void handlePwd() {
-        notifyClient("257 /" + currentDirectory + "/");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            notifyClient("257 /" + currentDirectory + "/");
+        }
+        else {
+            notifyClient("530 Not logged in.");
+        }
     }
 
     /**
@@ -186,70 +191,81 @@ public class FTPWorker extends Thread{
      * @param args 
      */
     private void handleDele(String file) {
-        String fileName = currentDirectory;
-        if (file != null && file.matches("^[a-zA-Z0-9_\\-/]+/[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+$")) {
-            fileName = fileName + "/" + file;
-            File deletedFile = new File(fileName);
-            if (deletedFile.exists() && deletedFile.isFile()) {
-                deletedFile.delete();
-                notifyClient("250 File deleted");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            String fileName = currentDirectory;
+            if (file != null && file.matches("^[a-zA-Z0-9_\\-/]+/[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+$")) {
+                fileName = fileName + "/" + file;
+                File deletedFile = new File(fileName);
+                if (deletedFile.exists() && deletedFile.isFile()) {
+                    deletedFile.delete();
+                    notifyClient("250 File deleted");
+                }
+                else {
+                    notifyClient("550 Requested action not taken; file unavailable");
+                }
             }
             else {
-                notifyClient("550 Requested action not taken; file unavailable");
+                notifyClient("550 Invalid file name.");
             }
         }
         else {
-            notifyClient("550 Invalid file name.");
+            notifyClient("530 Not logged in.");
         }
 
     }
     private void handleRetr(String file) {
-        File retrievedFile = new File(currentDirectory + "/" + file);
-        if (file==null) {
-            notifyClient("501 Syntax error. No file given");
-        }
-        else if (!retrievedFile.exists()) {
-            notifyClient("550 File does not exist");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            File retrievedFile = new File(currentDirectory + "/" + file);
+            if (file==null) {
+                notifyClient("501 Syntax error. No file given");
+            }
+            else if (!retrievedFile.exists()) {
+                notifyClient("550 File does not exist");
+            }
+            else {
+                notifyClient("150 File status okay; about to open data connection.");
+                BufferedOutputStream output = null;
+                BufferedInputStream input = null;
+                
+                // output is where we send the file to the data connection Output Stream
+                // input requestedile input stream
+                try {
+                    output = new BufferedOutputStream(dataConnection.getOutputStream());
+                    input = new BufferedInputStream(new FileInputStream(retrievedFile));
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                byte[] buffer = new byte [1024];
+                
+                int length = 0;
+
+                try {
+                    // while the end of the stream has not been reached
+                    while ((length = input.read(buffer, 0, 1024)) != -1) {
+                        output.write(buffer, 0, length);
+                    }
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    input.close();
+                    output.close();
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+                notifyClient("226 File successfuly retrieved. Closing data connection.");
+            }
+            closeDataConnection();
         }
         else {
-            notifyClient("150 File status okay; about to open data connection.");
-            BufferedOutputStream output = null;
-            BufferedInputStream input = null;
-            
-            // output is where we send the file to the data connection Output Stream
-            // input requestedile input stream
-            try {
-                output = new BufferedOutputStream(dataConnection.getOutputStream());
-                input = new BufferedInputStream(new FileInputStream(retrievedFile));
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            byte[] buffer = new byte [1024];
-            
-            int length = 0;
-
-            try {
-                // while the end of the stream has not been reached
-                while ((length = input.read(buffer, 0, 1024)) != -1) {
-                    output.write(buffer, 0, length);
-                }
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            try {
-                input.close();
-                output.close();
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
-            notifyClient("226 File successfuly retrieved. Closing data connection.");
+            notifyClient("530 Not logged in.");
         }
-        closeDataConnection();
+        
     }
 
     /**
@@ -257,45 +273,53 @@ public class FTPWorker extends Thread{
      * @param filename the file that will be stored
      */
     private void handleStor(String filename) {
-        if (filename == null) {
-            notifyClient("501 Syntax error. No file given");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            if (dataConnection == null) {
+                notifyClient("425 Can’t open data connection.");
+            }
+            else if (filename == null) {
+                notifyClient("501 Syntax error. No file given");
+            }
+            else {
+                File storedFile = new File(currentDirectory + "/" + filename);
+                notifyClient("150 File status okay; about to open data connection.");
+                BufferedOutputStream output = null;
+                BufferedInputStream input = null;
+    
+                try {
+                    // like the retrHandler but output and input are reversed
+                    output = new BufferedOutputStream(new FileOutputStream(storedFile));
+                    input = new BufferedInputStream(dataConnection.getInputStream());
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+    
+                byte[] buffer = new byte[1024];
+                int length = 0;
+                try {
+                    while ((length = input.read(buffer, 0, 1024)) != -1) {
+                        output.write(buffer, 0, length);
+                    }
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+                
+                try {
+                    input.close();
+                    output.close();
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+                notifyClient("226 File successfuly stored. Closing data connection");
+            }
+            closeDataConnection();
         }
         else {
-            File storedFile = new File(currentDirectory + "/" + filename);
-            notifyClient("150 File status okay; about to open data connection.");
-            BufferedOutputStream output = null;
-            BufferedInputStream input = null;
-
-            try {
-                // like the retrHandler but output and input are reversed
-                output = new BufferedOutputStream(new FileOutputStream(storedFile));
-                input = new BufferedInputStream(dataConnection.getInputStream());
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            byte[] buffer = new byte[1024];
-            int length = 0;
-            try {
-                while ((length = input.read(buffer, 0, 1024)) != -1) {
-                    output.write(buffer, 0, length);
-                }
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
-            
-            try {
-                input.close();
-                output.close();
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
-            notifyClient("226 File successfuly stored. Closing data connection");
+            notifyClient("530 Not logged in.");
         }
-        closeDataConnection();
     }
     /**
      * Close data connections 
@@ -321,49 +345,61 @@ public class FTPWorker extends Thread{
      * @param args
      */
     private void handleNlst(String args) {
-        if (dataConnection == null || dataConnection.isClosed()) {
-            notifyClient("425 Can't open data connection");
-        }
-        else {
-            String[] list = null;
-            String filename = currentDirectory;
-            // nlst command could have no argument in which case the filename would just be the current directory. Otherwise the argument is added
-            if (args != null) {
-                filename = filename + "/" + args;
-            }
-            
-            //check if the file is a directory
-            File file = new File(filename);
-            if (file.exists() && file.isDirectory()) {
-                list = file.list();
-            }
-            // the file is a file
-            else if (file.exists() && file.isFile()) {
-                list = new String[1];
-                list[0] = file.getName();
-            }
-
-            if (list == null) {
-                notifyClient("550 File does not exist");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            if (dataConnection == null || dataConnection.isClosed()) {
+                notifyClient("425 Can't open data connection");
             }
             else {
-                for (int i = 0; i < list.length; i ++) {
-                    dataOutWriter.print(list[i] + '\r' + '\n');
+                String[] list = null;
+                String filename = currentDirectory;
+                // nlst command could have no argument in which case the filename would just be the current directory. Otherwise the argument is added
+                if (args != null) {
+                    filename = filename + "/" + args;
                 }
+                
+                //check if the file is a directory
+                File file = new File(filename);
+                if (file.exists() && file.isDirectory()) {
+                    list = file.list();
+                }
+                // the file is a file
+                else if (file.exists() && file.isFile()) {
+                    list = new String[1];
+                    list[0] = file.getName();
+                }
+    
+                if (list == null) {
+                    notifyClient("550 File does not exist");
+                }
+                else {
+                    notifyClient("125 Opening data connection");
+                    for (int i = 0; i < list.length; i ++) {
+                        dataOutWriter.print(list[i] + '\r' + '\n');
+                    }
+                }
+                notifyClient("226 List successfully transfered");
+                closeDataConnection();
             }
-            notifyClient("226 List successfully transfered");
-            closeDataConnection();
+
+        }
+        else {
+            notifyClient("530 Not logged in.");
         }
 
     }
     private void handlePasv() {
-        String ipAddress = "127.0.0.1";
-        int port1 = dataPort / 256;
-        int port2 = dataPort % 256;
-        String response = "227 Entering Passive Mode (" + ipAddress.replace('.', ',') +
-                    "," + String.valueOf(port1) + "," + String.valueOf(port2) + ")";
-        notifyClient(response);
-        enterPassiveMode(dataPort);
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            String ipAddress = "127.0.0.1";
+            int port1 = dataPort / 256;
+            int port2 = dataPort % 256;
+            String response = "227 Entering Passive Mode (" + ipAddress.replace('.', ',') +
+                        "," + String.valueOf(port1) + "," + String.valueOf(port2) + ")";
+            notifyClient(response);
+            enterPassiveMode(dataPort);    
+        }
+        else {
+            notifyClient("530 Not logged in.");
+        }
         
     }
 
@@ -388,24 +424,29 @@ public class FTPWorker extends Thread{
      * @param directory Directory to change to
      */
     private void handleCwd(String directory) {
-        String directoryName = currentDirectory;
-        if (directory != null && directory.equals("..")) {
-            int index = directoryName.lastIndexOf("/");
-            if (index > 0 )
-                directoryName = directoryName.substring(0, index);
-        }
-        else if (directory != null && (!directory.equals("."))) {
-            directoryName = directoryName + "/" + directory;
-        }
-        File file = new File(directoryName);
-        
-        // the directory being changed to cannot be above the root directory 
-        if (file.exists() && file.isDirectory() && (directoryName.length() >= root.length())) {
-            currentDirectory = directoryName;
-            notifyClient("250 Directory changed succesfully to " + currentDirectory);
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            String directoryName = currentDirectory;
+            if (directory != null && directory.equals("..")) {
+                int index = directoryName.lastIndexOf("/");
+                if (index > 0 )
+                    directoryName = directoryName.substring(0, index);
+            }
+            else if (directory != null && (!directory.equals("."))) {
+                directoryName = directoryName + "/" + directory;
+            }
+            File file = new File(directoryName);
+            
+            // the directory being changed to cannot be above the root directory 
+            if (file.exists() && file.isDirectory() && (directoryName.length() >= root.length())) {
+                currentDirectory = directoryName;
+                notifyClient("250 Directory changed succesfully to " + currentDirectory);
+            }
+            else {
+                notifyClient("550 Requested action not taken. Directory unavailable.");
+            }
         }
         else {
-            notifyClient("550 Requested action not taken. Directory unavailable.");
+            notifyClient("530 Not logged in.");
         }
 
     }
@@ -414,39 +455,48 @@ public class FTPWorker extends Thread{
      * @param directory deleted directory
      */
     private void handleRmd(String directory) {
-        String directoryName = currentDirectory;
-        if (directory != null && directory.matches("^[a-zA-Z0-9_\\-/]+$")) {
-            directoryName = directoryName + "/" + directory;
-            File file = new File(directoryName);
-            if (file.exists() && file.isDirectory()) {
-                file.delete();
-                notifyClient("250 Directory deleted");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            String directoryName = currentDirectory;
+            if (directory != null && directory.matches("^[a-zA-Z0-9_\\-/]+$")) {
+                directoryName = directoryName + "/" + directory;
+                File file = new File(directoryName);
+                if (file.exists() && file.isDirectory()) {
+                    file.delete();
+                    notifyClient("250 Directory deleted");
+                }
+                else {
+                    notifyClient("550 Requested action not taken; directory unavailable");
+                }
             }
             else {
-                notifyClient("550 Requested action not taken; directory unavailable");
-            }
+                notifyClient("550 Requested action not taken; Invalid directory name.");
+            }    
         }
         else {
-            notifyClient("550 Requested action not taken; Invalid directory name.");
+            notifyClient("530 Not logged in.");
         }
-
     }
     /**
      * MKD handler
      * @param directoryName name of directory to be created
      */
     private void handleMkd(String directoryName) {
-        if (directoryName != null && directoryName.matches("^[a-zA-Z0-9]+$")) {
-            File directory = new File(currentDirectory + "/" + directoryName);
-            if (!directory.mkdir()) {
-                notifyClient("550 Requested action not taken; Unable to create new directory");
+        if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
+            if (directoryName != null && directoryName.matches("^[a-zA-Z0-9]+$")) {
+                File directory = new File(currentDirectory + "/" + directoryName);
+                if (!directory.mkdir()) {
+                    notifyClient("550 Requested action not taken; Unable to create new directory");
+                }
+                else {
+                    notifyClient("250 Directory created");
+                }
             }
             else {
-                notifyClient("250 Directory created");
+                notifyClient("550 Requested action not taken; Invalid directory name");
             }
         }
         else {
-            notifyClient("550 Requested action not taken; Invalid directory name");
+            notifyClient("530 Not logged in.");
         }
     }
     /**

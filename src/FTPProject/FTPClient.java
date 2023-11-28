@@ -2,6 +2,7 @@
 
 import java.net.Socket;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.ArrayList;
 import java.net.ServerSocket;
 import java.io.PrintWriter;
 import java.io.InputStreamReader;
@@ -46,7 +47,7 @@ public class FTPClient {
             client.controlReader = new BufferedReader(new InputStreamReader(client.controlSocket.getInputStream()));
             client.controlWriter = new PrintWriter(client.controlSocket.getOutputStream(), true);
             BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
-            
+
             client.isConnected = true;
             // Read the welcome message
             String response = client.controlReader.readLine();
@@ -71,39 +72,60 @@ public class FTPClient {
         int indexOfSpaceResponse = response.indexOf(' ');
         String codeString = response.substring(0, indexOfSpaceResponse).toUpperCase();
         int code = Integer.valueOf(codeString);
-        String command;
-        String args;
-        if (indexOfSpaceLine == -1) {
-            command = line.toUpperCase();
-            args = null;
-        }
-        else {
-            command = line.substring(0, indexOfSpaceLine).toUpperCase();
-            args = line.substring(indexOfSpaceLine + 1);
-        }
-        switch (command) {
-            case "STOR":
-                handleStor(args, code);
-                break;
-            case "RETR":
-                handleRetr(args, code);
-                break;
-            case "NLST":
-                handleNlst();
-                break;
-            case "PASV":
-                handlePasv(response);
-                break;
-            case "QUIT":
-                controlSocket.close();
-                isConnected = false;
-                break;
-            default:
-                break;
+        if (code != 530) {
+            String command;
+            String args;
+            if (indexOfSpaceLine == -1) {
+                command = line.toUpperCase();
+                args = null;
+            }
+            else {
+                command = line.substring(0, indexOfSpaceLine).toUpperCase();
+                args = line.substring(indexOfSpaceLine + 1);
+            }
+            switch (command) {
+                case "DELE":
+                    handleDele();
+                    break;
+                case "STOR":
+                    handleStor(args, code);
+                    break;
+                case "RETR":
+                    handleRetr(args, code);
+                    break;
+                case "NLST":
+                    handleNlst(code);
+                    break;
+                case "PASV":
+                    handlePasv(response);
+                    break;
+                case "QUIT":
+                    controlSocket.close();
+                    isConnected = false;
+                    break;
+                default:
+                    break;
+            }
         }
     }
-
-    private void handleNlst() {
+    private void handleDele() {
+    }
+    private void handleNlst(int code) {
+        if (code == 125) {
+            try {
+                ArrayList<String> directory = new ArrayList<String>();
+                String line;
+                line = dataReader.readLine();
+                System.out.println(line);
+                directory.add(line);
+                String response = controlReader.readLine();
+                System.out.println("Response from server: " + response);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+            closeDataConnection();
+        }
     }
     private void handleRetr(String filename, int code) {
         if (code == 150) {
