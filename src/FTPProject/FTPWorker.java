@@ -2,7 +2,7 @@ package FTPProject;
 
 
 import java.net.Socket;
-
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.io.PrintWriter;
 import java.io.InputStreamReader;
@@ -42,7 +42,7 @@ public class FTPWorker extends Thread{
         SIGNEDOUT, ENTEREDNAME, SIGNEDIN
     }
     private String validUser = "estrella";
-    private String validPassword ="HappyDog$RunFreeInThePark!";
+    private String validPassword ="root";
     private userStatus currentUserStatus = userStatus.SIGNEDOUT;
     /**
      * Creates an FTP worker with the client and data port
@@ -54,8 +54,8 @@ public class FTPWorker extends Thread{
         super();
         this.controlSocket = client;
         this.dataPort = dataPort;
-        this.currentDirectory = System.getProperty("user.dir") + "/first";
-        this.root = System.getProperty("user.dir");
+        this.currentDirectory = System.getProperty("user.dir") + "/root";
+        this.root = currentDirectory;
     }
     /**
      * Java thread run method
@@ -65,7 +65,7 @@ public class FTPWorker extends Thread{
             // input reader and output writer
             controlInputReader = new BufferedReader(new InputStreamReader(controlSocket.getInputStream()));
             controlOutputWriter = new PrintWriter(controlSocket.getOutputStream(), true);
-            notifyClient("If you see this then the server is working");
+            notifyClient("The ftp server is running woooo");
             
             // Client sends command
             while (!quitCommandLoop) {
@@ -104,6 +104,7 @@ public class FTPWorker extends Thread{
             args = line.substring(indexOfSpace + 1);
         }
 
+        System.out.println(command);
         switch (command) {
             case "USER":
             handleUser(args);
@@ -123,6 +124,10 @@ public class FTPWorker extends Thread{
 
             case "CWD":
             handleCwd(args);
+            break;
+
+            case "XPWD":
+            handlePwd();
             break;
 
             case "PWD":
@@ -200,10 +205,14 @@ public class FTPWorker extends Thread{
     }
     private void handleRetr(String file) {
         File retrievedFile = new File(currentDirectory + "/" + file);
-        if (!retrievedFile.exists()) {
+        if (file==null) {
+            notifyClient("501 Syntax error. No file given");
+        }
+        else if (!retrievedFile.exists()) {
             notifyClient("550 File does not exist");
         }
         else {
+            notifyClient("150 File status okay; about to open data connection.");
             BufferedOutputStream output = null;
             BufferedInputStream input = null;
             
@@ -239,8 +248,8 @@ public class FTPWorker extends Thread{
                 e.printStackTrace();
             }
             notifyClient("226 File successfuly retrieved. Closing data connection.");
-            closeDataConnection();
         }
+        closeDataConnection();
     }
 
     /**
@@ -253,44 +262,40 @@ public class FTPWorker extends Thread{
         }
         else {
             File storedFile = new File(currentDirectory + "/" + filename);
-            if (storedFile.exists()) {
-                notifyClient("550 Requested action not taken. File already exists");
-            }
-            else {
-                BufferedOutputStream output = null;
-                BufferedInputStream input = null;
-    
-                try {
-                    // like the retrHandler but output and input are reversed
-                    output = new BufferedOutputStream(new FileOutputStream(storedFile));
-                    input = new BufferedInputStream(dataConnection.getInputStream());
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                }
+            notifyClient("150 File status okay; about to open data connection.");
+            BufferedOutputStream output = null;
+            BufferedInputStream input = null;
 
-                byte[] buffer = new byte[1024];
-                int length = 0;
-                try {
-                    while ((length = input.read(buffer, 0, 1024)) != -1) {
-                        output.write(buffer, 0, length);
-                    }
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
-                
-                try {
-                    input.close();
-                    output.close();
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
-                notifyClient("226 File successfuly stored. Closing data connection");
+            try {
+                // like the retrHandler but output and input are reversed
+                output = new BufferedOutputStream(new FileOutputStream(storedFile));
+                input = new BufferedInputStream(dataConnection.getInputStream());
             }
-            closeDataConnection();
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            byte[] buffer = new byte[1024];
+            int length = 0;
+            try {
+                while ((length = input.read(buffer, 0, 1024)) != -1) {
+                    output.write(buffer, 0, length);
+                }
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+            
+            try {
+                input.close();
+                output.close();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+            notifyClient("226 File successfuly stored. Closing data connection");
         }
+        closeDataConnection();
     }
     /**
      * Close data connections 
@@ -352,7 +357,7 @@ public class FTPWorker extends Thread{
 
     }
     private void handlePasv() {
-        String ipAddress = "127.0.0.1"; // Replace with the actual server IP address
+        String ipAddress = "127.0.0.1";
         int port1 = dataPort / 256;
         int port2 = dataPort % 256;
         String response = "227 Entering Passive Mode (" + ipAddress.replace('.', ',') +
@@ -369,7 +374,7 @@ public class FTPWorker extends Thread{
      */
     private void enterPassiveMode(int port) {
         try {
-            dataSocket = new ServerSocket(port);
+            dataSocket = new ServerSocket(dataPort);
             dataConnection = dataSocket.accept();
             //set auto flush to true
             dataOutWriter = new PrintWriter(dataConnection.getOutputStream(), true);
@@ -464,8 +469,8 @@ public class FTPWorker extends Thread{
      * @param username inputted username
      */
     private void handleUser(String username) {
-        if (username.equals(validUser)) {
-            notifyClient("331 User name okay, need password.");
+        if (username != null && username.equals(validUser)) {
+            notifyClient("331 User is correct. Password is needed.");
             currentUserStatus = userStatus.ENTEREDNAME;
         }
         else

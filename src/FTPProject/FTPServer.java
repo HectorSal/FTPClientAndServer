@@ -2,6 +2,7 @@ package FTPProject;
 
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -28,7 +29,6 @@ public class FTPServer {
         int noOfThreads = 0;
         while (serverOn) {
             try {
-
             Socket client = serverSocket.accept();
             // Passive Mode ports
             int dataPort = controlPort + noOfThreads + 1;
