@@ -381,16 +381,13 @@ public class FTPWorker extends Thread{
                 else {
                     notifyClient("125 Opening data connection");
                     String files = "";
+                    StringBuilder str = new StringBuilder();
                     for (int i = 0; i < list.length; i ++) {
-
-                        StringBuilder str = new StringBuilder();
                         str.append(list[i] + '\r' + '\n');
-                        files = str.toString();
-                        System.out.print(str.toString());
                     }
+                    files = str.toString();
                     BufferedOutputStream output = null;
                     BufferedInputStream input = null;
-                    
                     // output is where we send the file list to the data connection Output Stream
                     // input requestedile input stream
                     try {
@@ -408,7 +405,6 @@ public class FTPWorker extends Thread{
                     try {
                         // while the end of the stream has not been reached
                         while ((length = input.read(buffer, 0, 1024)) != -1) {
-
                             output.write(buffer, 0, length);
                         }
                     }

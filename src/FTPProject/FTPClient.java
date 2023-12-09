@@ -1,7 +1,6 @@
     package FTPProject;
 
 import java.net.Socket;
-import java.util.ArrayList;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
@@ -111,7 +110,6 @@ public class FTPClient {
     }
     private void handleNlst(int code) {
         if (code == 125) {
-            BufferedOutputStream output = null;
             BufferedInputStream input = null;
             try {
                 input = new BufferedInputStream(this.dataSocket.getInputStream());
