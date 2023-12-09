@@ -1,20 +1,20 @@
     package FTPProject;
 
 import java.net.Socket;
-import java.nio.channels.ClosedByInterruptException;
 import java.util.ArrayList;
-import java.net.ServerSocket;
 import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 
 public class FTPClient {
 
@@ -23,7 +23,6 @@ public class FTPClient {
     private BufferedReader controlReader;
     private BufferedReader dataReader;
     private PrintWriter controlWriter;
-    private PrintWriter dataWriter;
     private static final String FTP_SERVER = "127.0.0.1";
     private static final int FTP_PORT = 2000; // Replace with your FTP server port
 
@@ -36,7 +35,6 @@ public class FTPClient {
         this.controlReader = null;
         this.dataReader = null;
         this.controlWriter = null;
-        this.dataWriter = null;
     }
     public static void main(String[] args) {
         try {
@@ -109,24 +107,58 @@ public class FTPClient {
         }
     }
     private void handleDele() {
+        
     }
     private void handleNlst(int code) {
         if (code == 125) {
+            BufferedOutputStream output = null;
+            BufferedInputStream input = null;
             try {
-                ArrayList<String> directory = new ArrayList<String>();
-                String line;
-                line = dataReader.readLine();
-                System.out.println(line);
-                directory.add(line);
-                String response = controlReader.readLine();
-                System.out.println("Response from server: " + response);
+                input = new BufferedInputStream(this.dataSocket.getInputStream());
             }
             catch (Exception e) {
                 e.printStackTrace();
             }
-            closeDataConnection();
+
+            try {
+                System.out.println(convertStreamToString(input));
+                input.close();
+                String response = controlReader.readLine();
+                System.out.println("Response from server: " + response);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        closeDataConnection();
+    }
+
+    public String convertStreamToString(InputStream is) throws IOException {
+        if (is != null) {
+            Writer writer = new StringWriter();
+
+            char[] buffer = new char[1024];
+            try
+            {
+                Reader reader = new BufferedReader(
+                        new InputStreamReader(is, "UTF-8"));
+                int n;
+                while ((n = reader.read(buffer)) != -1) 
+                {
+                    writer.write(buffer, 0, n);
+                }
+            }
+            finally 
+            {
+                is.close();
+            }
+            return writer.toString();
+        }
+        else {       
+            return "";
         }
     }
+
     private void handleRetr(String filename, int code) {
         if (code == 150) {
             File storedFile = new File(currentDirectory + "/" + filename);
@@ -170,16 +202,12 @@ public class FTPClient {
             if (dataSocket != null) {
                 dataSocket.close();
             }
-            if (dataWriter != null) {
-                dataWriter.close();
-            }
         }
         catch (IOException e) {
             e.printStackTrace();
         }
         dataReader = null;
         dataSocket = null;
-        dataWriter = null;
     }
     private void handleStor(String filename, int code) {
         File retrievedFile = new File(currentDirectory + "/" + filename);
@@ -235,11 +263,9 @@ public class FTPClient {
             int length = addressAndPort[5].length();
             addressAndPort[5] = addressAndPort[5].substring(0, length - 1);
             int port = Integer.valueOf(addressAndPort[4]) * 256 + Integer.valueOf(addressAndPort[5]);
-            Socket dataSocket = new Socket(address, port);
 
-            this.dataSocket = dataSocket;
+            this.dataSocket = new Socket(address, port);
             this.dataReader = new BufferedReader(new InputStreamReader(dataSocket.getInputStream()));
-            this.dataWriter = new PrintWriter(dataSocket.getOutputStream(), true);
         }
         catch (Exception e) {
             e.printStackTrace();

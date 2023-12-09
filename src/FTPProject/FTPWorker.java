@@ -2,7 +2,6 @@ package FTPProject;
 
 
 import java.net.Socket;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.io.PrintWriter;
 import java.io.InputStreamReader;
@@ -13,6 +12,7 @@ import java.io.FileInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 
 
 /**
@@ -193,7 +193,7 @@ public class FTPWorker extends Thread{
     private void handleDele(String file) {
         if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
             String fileName = currentDirectory;
-            if (file != null && file.matches("^[a-zA-Z0-9_\\-/]+/[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+$")) {
+            if (file != null && file.matches("^[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+$")) {
                 fileName = fileName + "/" + file;
                 File deletedFile = new File(fileName);
                 if (deletedFile.exists() && deletedFile.isFile()) {
@@ -216,7 +216,10 @@ public class FTPWorker extends Thread{
     private void handleRetr(String file) {
         if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
             File retrievedFile = new File(currentDirectory + "/" + file);
-            if (file==null) {
+            if (dataConnection == null) {
+                notifyClient("425 Can't open data connection.");
+            }
+            else if (file==null) {
                 notifyClient("501 Syntax error. No file given");
             }
             else if (!retrievedFile.exists()) {
@@ -275,7 +278,7 @@ public class FTPWorker extends Thread{
     private void handleStor(String filename) {
         if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
             if (dataConnection == null) {
-                notifyClient("425 Can’t open data connection.");
+                notifyClient("425 Can't open data connection.");
             }
             else if (filename == null) {
                 notifyClient("501 Syntax error. No file given");
@@ -326,8 +329,12 @@ public class FTPWorker extends Thread{
      */
     private void closeDataConnection() {
         try {
-            dataConnection.close();
-            dataOutWriter.close();
+            if (dataConnection !=null) {
+                dataConnection.close();
+            }
+            if (dataOutWriter != null) {
+                dataOutWriter.close();
+            }
             if (dataSocket != null) {
                 dataSocket.close();
             }
@@ -373,11 +380,51 @@ public class FTPWorker extends Thread{
                 }
                 else {
                     notifyClient("125 Opening data connection");
+                    String files = "";
                     for (int i = 0; i < list.length; i ++) {
-                        dataOutWriter.print(list[i] + '\r' + '\n');
+
+                        StringBuilder str = new StringBuilder();
+                        str.append(list[i] + '\r' + '\n');
+                        files = str.toString();
+                        System.out.print(str.toString());
                     }
+                    BufferedOutputStream output = null;
+                    BufferedInputStream input = null;
+                    
+                    // output is where we send the file list to the data connection Output Stream
+                    // input requestedile input stream
+                    try {
+                        output = new BufferedOutputStream(dataConnection.getOutputStream());
+                        input = new BufferedInputStream(new ByteArrayInputStream(files.getBytes()));
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+    
+                    byte[] buffer = new byte [1024];
+                    
+                    int length = 0;
+    
+                    try {
+                        // while the end of the stream has not been reached
+                        while ((length = input.read(buffer, 0, 1024)) != -1) {
+
+                            output.write(buffer, 0, length);
+                        }
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+    
+                    try {
+                        input.close();
+                        output.close();
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    notifyClient("226 List successfuly retrieved. Closing data connection.");
                 }
-                notifyClient("226 List successfully transfered");
                 closeDataConnection();
             }
 
@@ -387,6 +434,7 @@ public class FTPWorker extends Thread{
         }
 
     }
+
     private void handlePasv() {
         if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
             String ipAddress = "127.0.0.1";
@@ -461,8 +509,12 @@ public class FTPWorker extends Thread{
                 directoryName = directoryName + "/" + directory;
                 File file = new File(directoryName);
                 if (file.exists() && file.isDirectory()) {
-                    file.delete();
-                    notifyClient("250 Directory deleted");
+                    if (file.delete()) {
+                        notifyClient("250 Directory deleted");
+                    }
+                    else {
+                        notifyClient("550 Requested action not taken; Directory is not empty");
+                    }
                 }
                 else {
                     notifyClient("550 Requested action not taken; directory unavailable");
