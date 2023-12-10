@@ -15,5 +15,6 @@ A basic implementation of and FTP Client and Server with limited commands
 1. `java -cp bin FTPProject.FTPClient`
 
 ## Running Frontend
-1. Have JavaFX installed
-2. Using VS Code, go to `frontend-side/src/Client.java` and click `Run` above the main function.
+1. Install JavaFX
+2. Go to `frontend-side/.vscode/launch.json`. Edit `vmArgs` to the JavaFX path
+3. Using VS Code, go to `frontend-side/src/Client.java` and click `Run` above the main function.
