@@ -1,0 +1,21 @@
+{
+    "java.project.sourcePaths": ["src"],
+    "java.project.outputPath": "bin",
+    "java.project.referencedLibraries": {
+      "include": [
+        "lib/**/*.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx-swt.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.base.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.controls.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.fxml.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.graphics.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.media.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.swing.jar",
+        "/Users/tutran/Downloads/javafx-sdk-21.0.1/lib/javafx.web.jar"
+      ],
+      "exclude": [
+        "/Users/tutran/Documents/javafx-sdk-19/lib/javafx.base.jar",
+        "/Users/tutran/Documents/javafx-sdk-19/lib/javafx.controls.jar"
+      ]
+    }
+}
