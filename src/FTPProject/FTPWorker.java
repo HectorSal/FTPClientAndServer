@@ -44,6 +44,10 @@ public class FTPWorker extends Thread{
     private String validUser = "estrella";
     private String validPassword ="root";
     private userStatus currentUserStatus = userStatus.SIGNEDOUT;
+
+    static String USERS_MAIN_DIRECTORY = "/Users/tutran/Downloads/";
+    private File[] files;
+    private String completeCurrentPath = USERS_MAIN_DIRECTORY;
     /**
      * Creates an FTP worker with the client and data port
      * 
@@ -144,6 +148,10 @@ public class FTPWorker extends Thread{
 
             case "STOR":
             handleStor(args);
+            break;
+
+            case "READ_DIRECTORY":
+            readRootDirectory();
             break;
 
             case "RETR":
@@ -271,11 +279,33 @@ public class FTPWorker extends Thread{
         
     }
 
+    private void readRootDirectory() {
+      try {
+          files = new File(currentDirectory).listFiles();
+          if (files != null) {
+              StringBuilder allFiles = new StringBuilder();
+              for (File singleFile : files) {
+                  allFiles.append(singleFile.getName()).append(",");
+              }
+              // this.objectOutputStream.writeObject(allFiles);
+              String allFilesString = allFiles.toString();
+              notifyClient(allFilesString);
+          } else {
+              notifyClient("");
+              // this.objectOutputStream.writeObject(new StringBuilder());
+          }
+      } catch (Exception ex) {
+          System.out.println("Error Occurred in SingleClientHandler in readRootDirectory: " + ex.toString());
+      }
+  }
+
     /**
      * STOR command handler
      * @param filename the file that will be stored
      */
+  
     private void handleStor(String filename) {
+      System.out.println("FILE NAME" + filename);
         if (this.currentUserStatus.equals(userStatus.SIGNEDIN)){
             if (dataConnection == null) {
                 notifyClient("425 Can't open data connection.");
@@ -324,6 +354,7 @@ public class FTPWorker extends Thread{
             notifyClient("530 Not logged in.");
         }
     }
+    
     /**
      * Close data connections 
      */

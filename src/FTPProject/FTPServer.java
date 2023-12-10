@@ -31,7 +31,8 @@ public class FTPServer {
             Socket client = serverSocket.accept();
             // Passive Mode ports
             int dataPort = controlPort + numberOfThreads + 1;
-
+              System.out.println("DATA PORTR" + dataPort);
+              System.out.println("NUMBER OF THREADs" + numberOfThreads);
             // Each connection gets a new worker thread
             FTPWorker worker = new FTPWorker(client, dataPort);
 

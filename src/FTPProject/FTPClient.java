@@ -262,6 +262,7 @@ public class FTPClient {
             addressAndPort[5] = addressAndPort[5].substring(0, length - 1);
             int port = Integer.valueOf(addressAndPort[4]) * 256 + Integer.valueOf(addressAndPort[5]);
 
+            System.out.println("PORT" + port);
             this.dataSocket = new Socket(address, port);
             this.dataReader = new BufferedReader(new InputStreamReader(dataSocket.getInputStream()));
         }
